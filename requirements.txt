@@ -8,3 +8,5 @@ pydantic==2.5.0
 sqlite3
 python-dotenv==1.0.0
 faker==20.1.0
+APScheduler==3.10.4
+alembic==1.12.1

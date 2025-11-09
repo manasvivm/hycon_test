@@ -20,10 +20,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Create database tables on startup
+# Create database tables on startup and setup scheduler
+from apscheduler.schedulers.background import BackgroundScheduler
+from .session_scheduler import check_and_end_expired_sessions
+from .database import SessionLocal
+
+scheduler = BackgroundScheduler()
+
 @app.on_event("startup")
 def startup_event():
     create_tables()
+    
+    # Add job to check for expired sessions every minute
+    scheduler.add_job(
+        lambda: check_and_end_expired_sessions(SessionLocal()),
+        'interval',
+        minutes=1
+    )
+    scheduler.start()
 
 # Include routers
 app.include_router(auth.router)

@@ -89,7 +89,8 @@ def create_mock_data():
                 name=eq_data["name"],
                 equipment_id=eq_data["equipment_id"],
                 location=eq_data["location"],
-                description=f"Advanced {eq_data['name'].lower()} for pharmaceutical analysis"
+                description=f"Advanced {eq_data['name'].lower()} for pharmaceutical analysis",
+                current_status=EquipmentStatus.AVAILABLE  # Set default status as available
             )
             db.add(equipment)
             equipment_list.append(equipment)

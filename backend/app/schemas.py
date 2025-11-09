@@ -1,6 +1,6 @@
 # backend/app/schemas.py
 from pydantic import BaseModel, EmailStr
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 from .models import UserRole, EquipmentStatus, SessionStatus
 
@@ -34,6 +34,23 @@ class EquipmentBase(BaseModel):
 class EquipmentCreate(EquipmentBase):
     pass
 
+# Simple session schema without equipment to avoid circular reference
+class SimpleUsageSession(BaseModel):
+    id: int
+    user_id: int
+    start_time: datetime
+    end_time: Optional[datetime] = None
+    description: Optional[str] = None
+    remarks: Optional[str] = None
+    status: SessionStatus
+    scientist_signature: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    user: User
+    
+    class Config:
+        from_attributes = True
+
 class Equipment(EquipmentBase):
     id: int
     current_status: EquipmentStatus
@@ -41,6 +58,7 @@ class Equipment(EquipmentBase):
     current_session_start: Optional[datetime] = None
     created_at: datetime
     current_user: Optional[User] = None
+    usage_sessions: Optional[List[SimpleUsageSession]] = []
     
     class Config:
         from_attributes = True
@@ -49,18 +67,56 @@ class Equipment(EquipmentBase):
 class SessionBase(BaseModel):
     equipment_id: int
     start_time: datetime
+    planned_end_time: Optional[datetime] = None
     description: Optional[str] = None
     remarks: Optional[str] = None
 
 class SessionStart(BaseModel):
     equipment_id: int
     start_time: Optional[datetime] = None
+    planned_end_time: Optional[datetime] = None
     description: Optional[str] = None
     remarks: Optional[str] = None
 
-class SessionEnd(BaseModel):
-    end_time: Optional[datetime] = None
+class PastUsageLog(BaseModel):
+    equipment_id: int
+    start_time: datetime
+    end_time: datetime
+    description: str
     remarks: Optional[str] = None
+
+class SessionEnd(BaseModel):
+    end_time: datetime
+    remarks: Optional[str] = None
+
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
+
+    @classmethod
+    def parse_obj(cls, obj):
+        if isinstance(obj, dict) and "end_time" in obj:
+            if isinstance(obj["end_time"], str):
+                try:
+                    # Parse the ISO format string and ensure it's UTC
+                    dt = datetime.fromisoformat(obj["end_time"].replace('Z', '+00:00'))
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                    else:
+                        dt = dt.astimezone(timezone.utc)
+                    obj["end_time"] = dt
+                except ValueError:
+                    obj["end_time"] = datetime.now(timezone.utc)
+        return super().parse_obj(obj)
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        if self.end_time:
+            if self.end_time.tzinfo is None:
+                self.end_time = self.end_time.replace(tzinfo=timezone.utc)
+            else:
+                self.end_time = self.end_time.astimezone(timezone.utc)
 
 class SessionCreate(SessionBase):
     end_time: Optional[datetime] = None
@@ -74,7 +130,7 @@ class UsageSession(SessionBase):
     created_at: datetime
     updated_at: datetime
     user: User
-    equipment: Equipment
+    equipment: 'Equipment'
     
     class Config:
         from_attributes = True

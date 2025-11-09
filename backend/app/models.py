@@ -2,7 +2,10 @@
 from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, ForeignKey, Enum, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
+
+def get_utc_now():
+    return datetime.now(timezone.utc)
 import enum
 
 Base = declarative_base()
@@ -44,12 +47,17 @@ class Equipment(Base):
     description = Column(Text)
     current_status = Column(Enum(EquipmentStatus), default=EquipmentStatus.AVAILABLE)
     current_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    current_session_start = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    current_session_start = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=get_utc_now)
     
     # Relationships
     current_user = relationship("User", back_populates="current_sessions")
-    usage_sessions = relationship("UsageSession", back_populates="equipment")
+    usage_sessions = relationship(
+        "UsageSession", 
+        back_populates="equipment",
+        order_by="desc(UsageSession.start_time)",
+        lazy="select"
+    )
 
 class UsageSession(Base):
     __tablename__ = "usage_sessions"
@@ -57,14 +65,15 @@ class UsageSession(Base):
     id = Column(Integer, primary_key=True, index=True)
     equipment_id = Column(Integer, ForeignKey("equipment.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    start_time = Column(DateTime, nullable=False)
-    end_time = Column(DateTime, nullable=True)
+    start_time = Column(DateTime(timezone=True), nullable=False)
+    planned_end_time = Column(DateTime(timezone=True), nullable=True)
+    end_time = Column(DateTime(timezone=True), nullable=True)
     description = Column(Text)
     remarks = Column(Text)
     status = Column(Enum(SessionStatus), default=SessionStatus.ACTIVE)
     scientist_signature = Column(String(100))
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=get_utc_now)
+    updated_at = Column(DateTime(timezone=True), default=get_utc_now, onupdate=get_utc_now)
     
     # Relationships
     user = relationship("User", back_populates="usage_sessions")
