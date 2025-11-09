@@ -39,6 +39,7 @@ function Login() {
         muted
         playsInline
         className="absolute inset-0 w-full h-full object-cover"
+        style={{ objectPosition: '60% center' }}
       >
         <source src="/HyCON-Laboratories.mp4" type="video/mp4" />
       </video>
