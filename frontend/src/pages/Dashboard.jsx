@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useNavigate } from 'react-router-dom';
 import { equipmentApi, sessionApi } from '../services/api';
@@ -21,6 +21,11 @@ function Dashboard() {
   const ITEMS_PER_PAGE = 3;  // Show only 3 equipment cards
   const SESSIONS_PER_PAGE = 5;  // Show 5 active sessions per page
   const HISTORY_PER_PAGE = 10;  // Show 10 history items per page
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
 
   // Fetch equipment list
   const { data: equipment, isLoading: isLoadingEquipment, error: equipmentError } = useQuery(
@@ -151,13 +156,6 @@ function Dashboard() {
         break;
       }
 
-      case 'CLOSE': {
-        setSelectedEquipment(null);
-        setIsModalOpen(false);
-        setIsLogModalOpen(false);
-        break;
-      }
-
       default:
         console.warn('Unknown equipment action:', action);
     }
@@ -173,6 +171,37 @@ function Dashboard() {
       endSessionMutation.mutate(sessionId);
     }
   };
+
+  // Improved search filter function - searches in multiple fields
+  const filterEquipment = (item, searchTerm) => {
+    if (!searchTerm || searchTerm.trim() === '') return true;
+    
+    const term = searchTerm.toLowerCase().trim();
+    const searchableFields = [
+      item.name,
+      item.equipment_id,
+      item.location,
+      item.description,
+      item.current_status
+    ];
+    
+    // Check if any field contains the search term (partial match)
+    return searchableFields.some(field => 
+      field && field.toLowerCase().includes(term)
+    );
+  };
+
+  // Memoize filtered equipment to avoid re-filtering on every render
+  const filteredEquipment = useMemo(() => {
+    if (!equipment) return [];
+    return equipment.filter(item => filterEquipment(item, search));
+  }, [equipment, search]);
+
+  // Calculate pagination for filtered results
+  const paginatedEquipment = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredEquipment.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredEquipment, currentPage, ITEMS_PER_PAGE]);
 
   if (isLoadingEquipment || isLoadingSession) {
     return (
@@ -262,14 +291,10 @@ function Dashboard() {
                 Sessions
               </button>
             </div>
-            {equipment && equipment.length > ITEMS_PER_PAGE && (
+            {filteredEquipment.length > ITEMS_PER_PAGE && (
               <div className="ml-auto">
                 <Pagination
-                  totalItems={equipment.filter(item => 
-                    search === '' || 
-                    item.name.toLowerCase().includes(search.toLowerCase()) ||
-                    item.equipment_id.toLowerCase().includes(search.toLowerCase())
-                  ).length}
+                  totalItems={filteredEquipment.length}
                   itemsPerPage={ITEMS_PER_PAGE}
                   currentPage={currentPage}
                   onPageChange={setCurrentPage}
@@ -277,24 +302,28 @@ function Dashboard() {
               </div>
             )}
           </div>
+          {search && (
+            <div className="mt-2 text-sm text-gray-600">
+              Found {filteredEquipment.length} result{filteredEquipment.length !== 1 ? 's' : ''}
+            </div>
+          )}
         </div>
         <div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {equipment
-              ?.filter(item => 
-                search === '' || 
-                item.name.toLowerCase().includes(search.toLowerCase()) ||
-                item.equipment_id.toLowerCase().includes(search.toLowerCase())
-              )
-              .slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
-              .map((item) => (
+            {paginatedEquipment.length > 0 ? (
+              paginatedEquipment.map((item) => (
                 <EquipmentCard
                   key={item.id}
                   equipment={item}
                   onSelect={handleEquipmentSelect}
                   activeSessions={activeSessions}
                 />
-              ))}
+              ))
+            ) : (
+              <div className="col-span-full text-center py-8 text-gray-500">
+                {search ? 'No equipment found matching your search.' : 'No equipment available.'}
+              </div>
+            )}
           </div>
         </div>
       </div>
