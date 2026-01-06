@@ -1,22 +1,29 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { equipmentApi } from '../services/api';
 import Pagination from '../components/Pagination';
+import axios from 'axios';
 import {
   PlusIcon,
   PencilIcon,
   TrashIcon,
   XMarkIcon,
   CheckIcon,
-  MagnifyingGlassIcon
+  MagnifyingGlassIcon,
+  ArrowUpTrayIcon,
+  DocumentArrowDownIcon
 } from '@heroicons/react/24/outline';
 
 function EquipmentManagement() {
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showBatchUploadModal, setShowBatchUploadModal] = useState(false);
   const [editingEquipment, setEditingEquipment] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const [uploadFile, setUploadFile] = useState(null);
+  const [uploadResult, setUploadResult] = useState(null);
+  const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
     name: '',
     equipment_id: '',
@@ -74,6 +81,35 @@ function EquipmentManagement() {
     }
   );
 
+  // Batch upload mutation
+  const batchUploadMutation = useMutation(
+    async (file) => {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await axios.post('/equipment/batch-upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`
+        },
+      });
+      return response.data;
+    },
+    {
+      onSuccess: (data) => {
+        queryClient.invalidateQueries('equipment');
+        setUploadResult(data);
+        setUploadFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      },
+      onError: (error) => {
+        alert(error.response?.data?.detail || 'Failed to upload file');
+      }
+    }
+  );
+
   const resetForm = () => {
     setFormData({
       name: '',
@@ -81,6 +117,39 @@ function EquipmentManagement() {
       location: '',
       description: ''
     });
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (!file.name.endsWith('.csv')) {
+        alert('Please select a CSV file');
+        return;
+      }
+      setUploadFile(file);
+      setUploadResult(null);
+    }
+  };
+
+  const handleBatchUpload = () => {
+    if (!uploadFile) {
+      alert('Please select a file first');
+      return;
+    }
+    batchUploadMutation.mutate(uploadFile);
+  };
+
+  const downloadTemplate = () => {
+    const template = 'name,equipment_id,location,description\nMicroscope A,MSC-001,Lab Room 101,High-resolution optical microscope\nCentrifuge B,CTF-002,Lab Room 102,Refrigerated centrifuge';
+    const blob = new Blob([template], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'equipment_template.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleSubmit = (e) => {
@@ -151,13 +220,22 @@ function EquipmentManagement() {
           <h1 className="text-3xl font-bold text-gray-900">Equipment Management</h1>
           <p className="text-gray-600 mt-1">Add, edit, and manage laboratory equipment</p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition-colors"
-        >
-          <PlusIcon className="h-5 w-5" />
-          Add Equipment
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowBatchUploadModal(true)}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <ArrowUpTrayIcon className="h-5 w-5" />
+            Batch Upload
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition-colors"
+          >
+            <PlusIcon className="h-5 w-5" />
+            Add Equipment
+          </button>
+        </div>
       </div>
 
       {/* Search Bar */}
@@ -364,6 +442,140 @@ function EquipmentManagement() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Batch Upload Modal */}
+      {showBatchUploadModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+              <h2 className="text-2xl font-bold text-gray-900">Batch Upload Equipment</h2>
+              <button
+                onClick={() => {
+                  setShowBatchUploadModal(false);
+                  setUploadFile(null);
+                  setUploadResult(null);
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Instructions */}
+              <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+                <h3 className="font-semibold text-blue-900 mb-2">📋 Instructions</h3>
+                <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800">
+                  <li>Download the CSV template below</li>
+                  <li>Fill in equipment details (name, equipment_id, location, description)</li>
+                  <li>Save as CSV file</li>
+                  <li>Upload the file using the button below</li>
+                </ol>
+              </div>
+
+              {/* Template Download */}
+              <div className="flex justify-center">
+                <button
+                  onClick={downloadTemplate}
+                  className="flex items-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <DocumentArrowDownIcon className="h-5 w-5" />
+                  Download CSV Template
+                </button>
+              </div>
+
+              {/* File Upload */}
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                <div className="text-center">
+                  <ArrowUpTrayIcon className="mx-auto h-12 w-12 text-gray-400" />
+                  <div className="mt-4">
+                    <label htmlFor="file-upload" className="cursor-pointer">
+                      <span className="mt-2 block text-sm font-medium text-gray-900">
+                        {uploadFile ? uploadFile.name : 'Choose a CSV file'}
+                      </span>
+                      <input
+                        id="file-upload"
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".csv"
+                        onChange={handleFileChange}
+                        className="sr-only"
+                      />
+                      <span className="mt-1 block text-xs text-gray-500">
+                        CSV files only
+                      </span>
+                    </label>
+                  </div>
+                  {uploadFile && (
+                    <button
+                      onClick={handleBatchUpload}
+                      disabled={batchUploadMutation.isLoading}
+                      className="mt-4 bg-teal-600 text-white px-6 py-2 rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50"
+                    >
+                      {batchUploadMutation.isLoading ? 'Uploading...' : 'Upload Equipment'}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Upload Results */}
+              {uploadResult && (
+                <div className={`p-4 rounded-lg ${uploadResult.errors && uploadResult.errors.length > 0 ? 'bg-yellow-50 border-l-4 border-yellow-500' : 'bg-green-50 border-l-4 border-green-500'}`}>
+                  <h3 className="font-semibold text-gray-900 mb-2">
+                    ✅ Upload Complete
+                  </h3>
+                  <p className="text-sm text-gray-700 mb-2">
+                    Successfully created <strong>{uploadResult.created}</strong> equipment entries
+                  </p>
+                  {uploadResult.errors && uploadResult.errors.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-sm font-semibold text-yellow-800 mb-1">
+                        ⚠️ Errors ({uploadResult.errors.length}):
+                      </p>
+                      <div className="bg-white rounded p-2 max-h-40 overflow-y-auto">
+                        <ul className="list-disc list-inside text-xs text-gray-700 space-y-1">
+                          {uploadResult.errors.map((error, idx) => (
+                            <li key={idx}>{error}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* CSV Format Reference */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="font-semibold text-gray-900 mb-2">📝 CSV Format</h3>
+                <div className="text-xs font-mono bg-white p-3 rounded border border-gray-200 overflow-x-auto">
+                  <div className="text-gray-600">name,equipment_id,location,description</div>
+                  <div className="text-gray-800">Microscope A,MSC-001,Lab Room 101,High-resolution optical microscope</div>
+                  <div className="text-gray-800">Centrifuge B,CTF-002,Lab Room 102,Refrigerated centrifuge</div>
+                </div>
+                <p className="text-xs text-gray-600 mt-2">
+                  <strong>Required fields:</strong> name, equipment_id<br/>
+                  <strong>Optional fields:</strong> location, description
+                </p>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  onClick={() => {
+                    setShowBatchUploadModal(false);
+                    setUploadFile(null);
+                    setUploadResult(null);
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

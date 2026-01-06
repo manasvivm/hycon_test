@@ -1,0 +1,4 @@
+name,equipment_id,location,description
+High Performance Liquid Chromatograph,HPLC-999,Lab Z,Sample equipment for batch upload
+Gas Chromatograph,GC-998,Lab Y,Another sample equipment
+Spectrophotometer,SPEC-997,Lab X,Testing batch upload feature

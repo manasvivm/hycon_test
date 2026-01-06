@@ -167,6 +167,9 @@ def create_mock_data():
                 ).first()
                 
                 if not existing:  # Only create if no conflict
+                    # 20% chance this is a "past usage log" to simulate retroactive logging
+                    is_past_log = random.random() < 0.2
+                    
                     session = UsageSession(
                         equipment_id=equipment.id,
                         user_id=user.id,
@@ -182,6 +185,7 @@ def create_mock_data():
                             ""
                         ]),
                         status=SessionStatus.COMPLETED,
+                        is_past_usage_log=is_past_log,  # Mark some as past usage logs
                         scientist_signature=f"Digital signature by {user.name} at {session_end.strftime('%Y-%m-%d %H:%M:%S')}"
                     )
                     db.add(session)

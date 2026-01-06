@@ -1,0 +1,4 @@
+name,email,password,role
+John Smith,john.smith@hycon.com,pass123,employee
+Jane Doe,jane.doe@hycon.com,pass123,employee
+Admin User 2,admin2@hycon.com,admin123,admin

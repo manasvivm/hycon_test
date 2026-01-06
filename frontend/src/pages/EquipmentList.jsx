@@ -21,6 +21,8 @@ function EquipmentList() {
   const [selectedEquipment, setSelectedEquipment] = useState(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [batchFile, setBatchFile] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 15;
 
@@ -145,6 +147,13 @@ function EquipmentList() {
             >
               Add Equipment
             </button>
+            <button
+              type="button"
+              onClick={() => setIsBatchModalOpen(true)}
+              className="ml-3 inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:w-auto"
+            >
+              Batch Upload
+            </button>
           </div>
         )}
       </div>
@@ -206,6 +215,50 @@ function EquipmentList() {
         allEquipment={equipment}
         activeSessions={activeSessions}
       />
+
+      {/* Batch Upload Modal */}
+      {isBatchModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg shadow-xl w-11/12 max-w-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium">Batch Upload Equipment (CSV / XLSX)</h3>
+              <button onClick={() => setIsBatchModalOpen(false)} className="text-gray-500 hover:text-gray-700">Close</button>
+            </div>
+            <p className="text-sm text-gray-600 mb-3">Upload a CSV or Excel (.xlsx) file with columns: <strong>name, equipment_id, location, description</strong>.</p>
+            <input
+              type="file"
+              accept=".csv, .txt, .xlsx"
+              onChange={(e) => setBatchFile(e.target.files && e.target.files[0])}
+              className="mb-4"
+            />
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setIsBatchModalOpen(false)} className="px-4 py-2 bg-gray-100 rounded">Cancel</button>
+              <button
+                onClick={async () => {
+                  if (!batchFile) {
+                    alert('Please choose a file to upload');
+                    return;
+                  }
+                  try {
+                    const res = await equipmentApi.batchUpload(batchFile);
+                    alert(res.data.message || `Created ${res.data.created} items`);
+                    setIsBatchModalOpen(false);
+                    setBatchFile(null);
+                    queryClient.invalidateQueries('equipment');
+                  } catch (err) {
+                    console.error('Batch upload error', err.response || err);
+                    const msg = err.response?.data?.detail || err.response?.data?.message || err.message || 'Upload failed';
+                    alert('Batch upload failed: ' + msg);
+                  }
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Upload
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

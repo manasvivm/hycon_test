@@ -8,14 +8,26 @@ import EquipmentList from './pages/EquipmentList';
 import SessionManager from './pages/SessionManager';
 import AdminDashboard from './pages/AdminDashboard';
 import EquipmentManagement from './pages/EquipmentManagement';
+import SampleSubmission from './pages/SampleSubmission';
+import EmailRecipients from './pages/EmailRecipients';
 
-// Create a client
+// Create optimized QueryClient with performance-focused settings
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1, // Only retry once
+      retry: 2, // Retry failed requests twice (handles network hiccups)
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000), // Exponential backoff
       refetchOnWindowFocus: false, // Don't refetch on window focus
+      refetchOnMount: true, // Refetch on component mount
+      refetchOnReconnect: true, // Refetch when connection restored
       staleTime: 30000, // Consider data fresh for 30 seconds
+      cacheTime: 5 * 60 * 1000, // Keep unused data in cache for 5 minutes
+      suspense: false, // Don't use React Suspense
+      useErrorBoundary: false, // Don't throw errors to error boundary
+    },
+    mutations: {
+      retry: 1, // Retry mutations once
+      retryDelay: 1000, // 1 second delay before retry
     },
   },
 });
@@ -62,6 +74,7 @@ function App() {
               <Route index element={<Dashboard />} />
               <Route path="equipment" element={<EquipmentList />} />
               <Route path="sessions" element={<SessionManager />} />
+              <Route path="samples" element={<SampleSubmission />} />
               <Route
                 path="admin"
                 element={
@@ -75,6 +88,14 @@ function App() {
                 element={
                   <AdminRoute>
                     <EquipmentManagement />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="admin/emails"
+                element={
+                  <AdminRoute>
+                    <EmailRecipients />
                   </AdminRoute>
                 }
               />

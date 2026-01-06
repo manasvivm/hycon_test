@@ -126,6 +126,7 @@ class UsageSession(SessionBase):
     user_id: int
     end_time: Optional[datetime] = None
     status: SessionStatus
+    is_past_usage_log: Optional[bool] = False
     scientist_signature: Optional[str] = None
     created_at: datetime
     updated_at: datetime
@@ -168,3 +169,48 @@ class AnalyticsDashboard(BaseModel):
 class DescriptionSuggestion(BaseModel):
     description: str
     usage_count: int
+
+# Sample Submission Schemas
+class SampleSubmissionCreate(BaseModel):
+    project: str
+    sample_name: str
+    batch_no: str
+    label_claim: str
+    sample_quantity: str
+    packaging_configuration: str
+    recommended_storage: str
+    condition: str
+    tests_to_be_performed: str
+    remarks: Optional[str] = None
+    submitted_to: str
+    submitted_by: str
+    recipient_email: str
+
+class SampleSubmission(SampleSubmissionCreate):
+    id: int
+    submitted_by_user_id: Optional[int] = None
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+# Email Recipient Schemas
+class EmailRecipientCreate(BaseModel):
+    name: str
+    email: EmailStr
+    department: Optional[str] = None
+    is_active: bool = True
+
+class EmailRecipientUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    department: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class EmailRecipient(EmailRecipientCreate):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True

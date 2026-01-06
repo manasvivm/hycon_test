@@ -1,7 +1,8 @@
+import React from 'react';
 import { format } from 'date-fns';
 
-// Status Badge Component
-function StatusBadge({ status }) {
+// Status Badge Component - Memoized to prevent re-renders
+const StatusBadge = React.memo(({ status }) => {
   const colors = {
     AVAILABLE: 'bg-green-100 text-green-800',
     IN_USE: 'bg-blue-100 text-blue-800',
@@ -21,10 +22,12 @@ function StatusBadge({ status }) {
       {labels[normalizedStatus]}
     </span>
   );
-}
+});
 
-// Equipment Card Component
-function EquipmentCard({ equipment, onSelect, activeSessions = [] }) {
+StatusBadge.displayName = 'StatusBadge';
+
+// Equipment Card Component - Memoized with custom comparison
+const EquipmentCard = React.memo(({ equipment, onSelect, activeSessions = [] }) => {
   // Check if this equipment is in use by the current user
   const userSession = activeSessions?.find(session => session.equipment.id === equipment.id);
   const handleStartSession = (e) => {
@@ -106,10 +109,20 @@ function EquipmentCard({ equipment, onSelect, activeSessions = [] }) {
       </div>
     </div>
   );
-}
+}, (prevProps, nextProps) => {
+  // Custom comparison for memoization - only re-render if these props change
+  return (
+    prevProps.equipment.id === nextProps.equipment.id &&
+    prevProps.equipment.current_status === nextProps.equipment.current_status &&
+    prevProps.equipment.current_user?.id === nextProps.equipment.current_user?.id &&
+    prevProps.activeSessions?.length === nextProps.activeSessions?.length
+  );
+});
 
-// Active Session Card Component
-function ActiveSessionCard({ session }) {
+EquipmentCard.displayName = 'EquipmentCard';
+
+// Active Session Card Component - Memoized
+const ActiveSessionCard = React.memo(({ session }) => {
   if (!session) return null;
 
   return (
@@ -145,7 +158,9 @@ function ActiveSessionCard({ session }) {
       </div>
     </div>
   );
-}
+});
+
+ActiveSessionCard.displayName = 'ActiveSessionCard';
 
 // Export all components
 export {
