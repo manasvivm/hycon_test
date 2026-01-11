@@ -256,9 +256,12 @@ async def send_sample_submission_email(
         html_part = MIMEText(html_content, "html")
         message.attach(html_part)
         
-        # Send email
-        async with aiosmtplib.SMTP(hostname=SMTP_HOST, port=SMTP_PORT, use_tls=False) as smtp:
-            await smtp.starttls()
+        # Send email using STARTTLS (port 587)
+        async with aiosmtplib.SMTP(
+            hostname=SMTP_HOST, 
+            port=SMTP_PORT,
+            start_tls=True  # Automatically handle STARTTLS
+        ) as smtp:
             await smtp.login(SMTP_USER, SMTP_PASSWORD)
             await smtp.send_message(message)
         
@@ -290,4 +293,352 @@ async def test_email_connection() -> bool:
         return True
     except Exception as e:
         print(f"Email connection test failed: {str(e)}")
+        return False
+
+
+def create_confirmation_email_html(submission_data: Dict) -> str:
+    """Create confirmation email for the sender"""
+    
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body {{
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                background-color: #f5f5f5;
+                margin: 0;
+                padding: 20px;
+            }}
+            .container {{
+                max-width: 600px;
+                margin: 0 auto;
+                background-color: white;
+                border-radius: 8px;
+                overflow: hidden;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }}
+            .header {{
+                background: linear-gradient(135deg, #059669 0%, #047857 100%);
+                color: white;
+                padding: 30px;
+                text-align: center;
+            }}
+            .header h1 {{
+                margin: 0;
+                font-size: 24px;
+                font-weight: 600;
+            }}
+            .checkmark {{
+                font-size: 48px;
+                margin-bottom: 10px;
+            }}
+            .content {{
+                padding: 30px;
+            }}
+            .info-box {{
+                background-color: #f0fdf4;
+                border-left: 4px solid #059669;
+                padding: 15px;
+                margin: 20px 0;
+                border-radius: 4px;
+            }}
+            .info-label {{
+                font-weight: 600;
+                color: #047857;
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }}
+            .info-value {{
+                color: #111827;
+                font-size: 16px;
+                margin-top: 5px;
+            }}
+            .button {{
+                display: inline-block;
+                background-color: #059669;
+                color: white;
+                padding: 12px 30px;
+                text-decoration: none;
+                border-radius: 6px;
+                font-weight: 600;
+                margin-top: 20px;
+            }}
+            .footer {{
+                background-color: #f9fafb;
+                padding: 20px 30px;
+                text-align: center;
+                color: #6b7280;
+                font-size: 13px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <div class="checkmark">✅</div>
+                <h1>Sample Submission Confirmed</h1>
+            </div>
+            
+            <div class="content">
+                <p>Hi <strong>{submission_data.get('submitted_by', 'User')}</strong>,</p>
+                <p>Your sample submission has been successfully recorded in the HYCON Lab Management System.</p>
+                
+                <div class="info-box">
+                    <div class="info-label">Reference Number</div>
+                    <div class="info-value">{submission_data.get('reference_number', 'N/A')}</div>
+                </div>
+                
+                <div class="info-box">
+                    <div class="info-label">Project</div>
+                    <div class="info-value">{submission_data.get('project', 'N/A')}</div>
+                </div>
+                
+                <div class="info-box">
+                    <div class="info-label">Sample Name</div>
+                    <div class="info-value">{submission_data.get('sample_name', 'N/A')}</div>
+                </div>
+                
+                <div class="info-box">
+                    <div class="info-label">Submitted To</div>
+                    <div class="info-value">{submission_data.get('submitted_to', 'N/A')}</div>
+                </div>
+                
+                <div class="info-box">
+                    <div class="info-label">Submitted At</div>
+                    <div class="info-value">{submission_data.get('created_at', 'N/A')}</div>
+                </div>
+                
+                <p>You will be notified when the recipient reviews your submission. You can track the status by logging into the system.</p>
+                
+                <center>
+                    <a href="{submission_data.get('app_url', '#')}/samples/sent" class="button">View My Submissions</a>
+                </center>
+            </div>
+            
+            <div class="footer">
+                <strong>HYCON Lab Management System</strong><br>
+                This is an automated confirmation. Please do not reply to this email.
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return html
+
+
+def create_notification_email_html(submission_data: Dict) -> str:
+    """Create notification email for the recipient"""
+    
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body {{
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                background-color: #f5f5f5;
+                margin: 0;
+                padding: 20px;
+            }}
+            .container {{
+                max-width: 600px;
+                margin: 0 auto;
+                background-color: white;
+                border-radius: 8px;
+                overflow: hidden;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }}
+            .header {{
+                background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+                color: white;
+                padding: 30px;
+                text-align: center;
+            }}
+            .header h1 {{
+                margin: 0;
+                font-size: 24px;
+                font-weight: 600;
+            }}
+            .alert-icon {{
+                font-size: 48px;
+                margin-bottom: 10px;
+            }}
+            .content {{
+                padding: 30px;
+            }}
+            .info-box {{
+                background-color: #fef2f2;
+                border-left: 4px solid #dc2626;
+                padding: 15px;
+                margin: 20px 0;
+                border-radius: 4px;
+            }}
+            .info-label {{
+                font-weight: 600;
+                color: #991b1b;
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }}
+            .info-value {{
+                color: #111827;
+                font-size: 16px;
+                margin-top: 5px;
+            }}
+            .button {{
+                display: inline-block;
+                background-color: #dc2626;
+                color: white;
+                padding: 12px 30px;
+                text-decoration: none;
+                border-radius: 6px;
+                font-weight: 600;
+                margin-top: 20px;
+            }}
+            .footer {{
+                background-color: #f9fafb;
+                padding: 20px 30px;
+                text-align: center;
+                color: #6b7280;
+                font-size: 13px;
+            }}
+            .urgent {{
+                background-color: #fee2e2;
+                color: #991b1b;
+                padding: 10px 15px;
+                border-radius: 6px;
+                font-weight: 600;
+                text-align: center;
+                margin-bottom: 20px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <div class="alert-icon">📋</div>
+                <h1>New Sample Submission</h1>
+            </div>
+            
+            <div class="content">
+                <div class="urgent">⚠️ Action Required: New submission awaiting your review</div>
+                
+                <p>Hi <strong>{submission_data.get('submitted_to', 'Recipient')}</strong>,</p>
+                <p>You have received a new sample submission in the HYCON Lab Management System.</p>
+                
+                <div class="info-box">
+                    <div class="info-label">Reference Number</div>
+                    <div class="info-value">{submission_data.get('reference_number', 'N/A')}</div>
+                </div>
+                
+                <div class="info-box">
+                    <div class="info-label">Project</div>
+                    <div class="info-value">{submission_data.get('project', 'N/A')}</div>
+                </div>
+                
+                <div class="info-box">
+                    <div class="info-label">Sample Name</div>
+                    <div class="info-value">{submission_data.get('sample_name', 'N/A')}</div>
+                </div>
+                
+                <div class="info-box">
+                    <div class="info-label">Submitted By</div>
+                    <div class="info-value">{submission_data.get('submitted_by', 'N/A')}</div>
+                </div>
+                
+                <div class="info-box">
+                    <div class="info-label">Priority</div>
+                    <div class="info-value">{submission_data.get('priority', 'NORMAL').upper()}</div>
+                </div>
+                
+                <div class="info-box">
+                    <div class="info-label">Received At</div>
+                    <div class="info-value">{submission_data.get('created_at', 'N/A')}</div>
+                </div>
+                
+                <p><strong>Please log into the system to review the full submission details and take action.</strong></p>
+                
+                <center>
+                    <a href="{submission_data.get('app_url', '#')}/samples/inbox" class="button">View Submission</a>
+                </center>
+            </div>
+            
+            <div class="footer">
+                <strong>HYCON Lab Management System</strong><br>
+                This is an automated notification. Please do not reply to this email.
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return html
+
+
+async def send_submission_confirmation(
+    sender_email: str,
+    submission_data: Dict
+) -> bool:
+    """Send confirmation email to submission sender"""
+    try:
+        message = MIMEMultipart("alternative")
+        message["Subject"] = f"✅ Submission Confirmed: {submission_data.get('reference_number', 'N/A')}"
+        message["From"] = f"{SMTP_FROM_NAME} <{SMTP_FROM_EMAIL}>"
+        message["To"] = sender_email
+        
+        html_content = create_confirmation_email_html(submission_data)
+        html_part = MIMEText(html_content, "html")
+        message.attach(html_part)
+        
+        async with aiosmtplib.SMTP(
+            hostname=SMTP_HOST, 
+            port=SMTP_PORT,
+            start_tls=True  # Automatically handle STARTTLS
+        ) as smtp:
+            await smtp.login(SMTP_USER, SMTP_PASSWORD)
+            await smtp.send_message(message)
+        
+        print(f"✅ Confirmation email sent to sender: {sender_email}")
+        return True
+    
+    except Exception as e:
+        print(f"❌ Error sending confirmation email: {str(e)}")
+        return False
+
+
+async def send_submission_notification(
+    recipient_email: str,
+    submission_data: Dict
+) -> bool:
+    """Send notification email to submission recipient"""
+    try:
+        message = MIMEMultipart("alternative")
+        message["Subject"] = f"📋 New Sample Submission: {submission_data.get('reference_number', 'N/A')}"
+        message["From"] = f"{SMTP_FROM_NAME} <{SMTP_FROM_EMAIL}>"
+        message["To"] = recipient_email
+        
+        html_content = create_notification_email_html(submission_data)
+        html_part = MIMEText(html_content, "html")
+        message.attach(html_part)
+        
+        async with aiosmtplib.SMTP(
+            hostname=SMTP_HOST, 
+            port=SMTP_PORT,
+            start_tls=True  # Automatically handle STARTTLS
+        ) as smtp:
+            await smtp.login(SMTP_USER, SMTP_PASSWORD)
+            await smtp.send_message(message)
+        
+        print(f"✅ Notification email sent to recipient: {recipient_email}")
+        return True
+    
+    except Exception as e:
+        print(f"❌ Error sending notification email: {str(e)}")
         return False

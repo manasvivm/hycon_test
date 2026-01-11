@@ -9,6 +9,7 @@ import SessionManager from './pages/SessionManager';
 import AdminDashboard from './pages/AdminDashboard';
 import EquipmentManagement from './pages/EquipmentManagement';
 import SampleSubmission from './pages/SampleSubmission';
+import SampleInbox from './pages/SampleInbox';
 import EmailRecipients from './pages/EmailRecipients';
 
 // Create optimized QueryClient with performance-focused settings
@@ -75,6 +76,7 @@ function App() {
               <Route path="equipment" element={<EquipmentList />} />
               <Route path="sessions" element={<SessionManager />} />
               <Route path="samples" element={<SampleSubmission />} />
+              <Route path="samples/inbox" element={<SampleInbox />} />
               <Route
                 path="admin"
                 element={

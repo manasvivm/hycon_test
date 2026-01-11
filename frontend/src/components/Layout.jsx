@@ -20,6 +20,7 @@ function Layout() {
     { path: '/equipment', label: 'Equipment', icon: '🔬' },
     { path: '/sessions', label: 'Sessions', icon: '📅' },
     { path: '/samples', label: 'Sample Submission', icon: '📋' },
+    { path: '/samples/inbox', label: 'Inbox', icon: '📬' },
   ];
 
   const adminItems = user?.role === 'admin' ? [

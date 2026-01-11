@@ -184,11 +184,48 @@ class SampleSubmissionCreate(BaseModel):
     remarks: Optional[str] = None
     submitted_to: str
     submitted_by: str
-    recipient_email: str
+    recipient_emails: List[str]  # Changed to support multiple recipients
 
-class SampleSubmission(SampleSubmissionCreate):
+class SampleSubmission(BaseModel):
     id: int
+    reference_number: str
+    project: str
+    sample_name: str
+    batch_no: str
+    label_claim: str
+    sample_quantity: str
+    packaging_configuration: str
+    recommended_storage: str
+    condition: str
+    tests_to_be_performed: str
+    remarks: Optional[str] = None
+    submitted_to: str
+    submitted_by: str
     submitted_by_user_id: Optional[int] = None
+    recipient_email: str  # Single email (from database)
+    recipient_user_id: Optional[int] = None
+    status: str  # pending, received, in_review, completed, rejected, archived
+    is_read: bool
+    read_at: Optional[datetime] = None
+    read_by_user_id: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
+    submitted_by_user: Optional[User] = None  # Include sender info
+    recipient_user: Optional[User] = None     # Include recipient info
+    
+    class Config:
+        from_attributes = True
+
+class SampleSubmissionList(BaseModel):
+    """Summary view for list displays"""
+    id: int
+    reference_number: str
+    project: str
+    sample_name: str
+    submitted_by: str
+    submitted_to: str
+    status: str
+    is_read: bool
     created_at: datetime
     
     class Config:
@@ -214,3 +251,52 @@ class EmailRecipient(EmailRecipientCreate):
     
     class Config:
         from_attributes = True
+
+# Message Thread Schemas
+class MessageThreadCreate(BaseModel):
+    message: str
+
+class MessageThread(BaseModel):
+    id: int
+    submission_id: int
+    sender_id: Optional[int] = None
+    message: str
+    is_system_message: bool
+    is_read: bool
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+# Status History Schemas
+class SubmissionStatusHistory(BaseModel):
+    id: int
+    submission_id: int
+    old_status: Optional[str] = None
+    new_status: str
+    changed_by_user_id: Optional[int] = None
+    notes: Optional[str] = None
+    changed_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+# Notification Schemas
+class Notification(BaseModel):
+    id: int
+    user_id: int
+    submission_id: Optional[int] = None
+    notification_type: str
+    title: str
+    message: str
+    is_read: bool
+    created_at: datetime
+    read_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+class NotificationSummary(BaseModel):
+    """Summary for notification badges"""
+    unread_count: int
+    total_count: int
