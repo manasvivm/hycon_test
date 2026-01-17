@@ -4,7 +4,9 @@ import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import showToast from '../utils/toast';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+
 
 function SampleSubmission() {
   const { token } = useAuth();

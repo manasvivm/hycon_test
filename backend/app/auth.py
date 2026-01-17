@@ -9,6 +9,9 @@ from sqlalchemy.orm import Session
 from .database import get_db
 from .models import User
 from .schemas import User as UserSchema
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Configuration
 SECRET_KEY = "hycon-labs-equipment-system-secret-key-change-in-production"
@@ -50,11 +53,65 @@ def verify_token(token: str) -> Optional[str]:
         return None
 
 def authenticate_user(db: Session, email: str, password: str):
-    """Authenticate user with email and password"""
+    """Authenticate user with email and password (database auth)"""
     user = db.query(User).filter(User.email == email).first()
     if not user or not verify_password(password, user.password_hash):
         return False
     return user
+
+def authenticate_user_ldap(db: Session, username: str, password: str):
+    """
+    Authenticate user via LDAP and auto-create/update user in database
+    
+    Args:
+        db: Database session
+        username: Username (can be email, username, or DOMAIN\\username)
+        password: User's password
+        
+    Returns:
+        User object if successful, False if failed
+    """
+    try:
+        # Import here to avoid circular imports
+        from .ldap_auth import ldap_auth
+        
+        # Try LDAP authentication
+        ldap_user_info = ldap_auth.authenticate_user(username, password)
+        
+        if not ldap_user_info:
+            logger.info(f"LDAP authentication failed for: {username}")
+            return False
+        
+        logger.info(f"LDAP authentication successful for: {ldap_user_info['username']}")
+        
+        # Check if user exists in database
+        user = db.query(User).filter(User.email == ldap_user_info['email']).first()
+        
+        if user:
+            # Update existing user with latest AD info
+            user.name = ldap_user_info['name']
+            user.role = ldap_user_info['role']
+            logger.info(f"Updated existing user: {user.email} with role: {user.role}")
+        else:
+            # Create new user from LDAP info
+            user = User(
+                email=ldap_user_info['email'],
+                name=ldap_user_info['name'],
+                role=ldap_user_info['role'],
+                password_hash=get_password_hash(password)  # Store hashed password as backup
+            )
+            db.add(user)
+            logger.info(f"Created new user from LDAP: {user.email} with role: {user.role}")
+        
+        db.commit()
+        db.refresh(user)
+        
+        return user
+        
+    except Exception as e:
+        logger.error(f"Error in LDAP authentication for {username}: {str(e)}")
+        db.rollback()
+        return False
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),

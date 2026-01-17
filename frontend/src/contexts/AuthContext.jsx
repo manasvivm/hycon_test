@@ -28,8 +28,8 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (email, password) => {
     try {
-      const response = await axios.post('http://localhost:8000/auth/login', {
-        email: email,
+      const response = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/auth/login`, {
+	email: email,
         password: password
       });
       

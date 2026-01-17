@@ -13,6 +13,7 @@ from ..schemas import Equipment, EquipmentCreate, User, DescriptionSuggestion
 from ..auth import get_current_user, get_current_admin
 from ..crud import create_equipment, get_equipment_by_id, get_description_suggestions
 from ..crud_optimized import get_equipment_optimized
+from ..websocket_manager import manager
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,20 @@ async def create_new_equipment(
 ):
     """Create new equipment (admin only)"""
     equipment = create_equipment(db, equipment_data)
+    
+    # Broadcast equipment creation to all connected clients
+    await manager.broadcast_equipment_update(
+        equipment_id=equipment.id,
+        action='create',
+        data={
+            'id': equipment.id,
+            'name': equipment.name,
+            'equipment_id': equipment.equipment_id,
+            'location': equipment.location,
+            'current_status': equipment.current_status.value
+        }
+    )
+    
     return Equipment.from_orm(equipment)
 
 @router.put("/{equipment_id}", response_model=Equipment)
@@ -72,6 +87,20 @@ async def update_equipment(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Equipment not found"
         )
+    
+    # Broadcast equipment update to all connected clients
+    await manager.broadcast_equipment_update(
+        equipment_id=equipment.id,
+        action='update',
+        data={
+            'id': equipment.id,
+            'name': equipment.name,
+            'equipment_id': equipment.equipment_id,
+            'location': equipment.location,
+            'current_status': equipment.current_status.value
+        }
+    )
+    
     return Equipment.from_orm(equipment)
 
 @router.delete("/{equipment_id}")
@@ -88,6 +117,14 @@ async def delete_equipment(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Equipment not found"
         )
+    
+    # Broadcast equipment deletion to all connected clients
+    await manager.broadcast_equipment_update(
+        equipment_id=equipment_id,
+        action='delete',
+        data={'id': equipment_id}
+    )
+    
     return {"message": "Equipment deleted successfully"}
 
 @router.post("/batch-upload")

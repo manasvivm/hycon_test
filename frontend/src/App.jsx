@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { WebSocketProvider } from './contexts/WebSocketContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -13,18 +14,21 @@ import SampleInbox from './pages/SampleInbox';
 import EmailRecipients from './pages/EmailRecipients';
 
 // Create optimized QueryClient with performance-focused settings
+// WebSocket provides real-time updates, polling is fallback
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 2, // Retry failed requests twice (handles network hiccups)
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000), // Exponential backoff
-      refetchOnWindowFocus: false, // Don't refetch on window focus
+      refetchOnWindowFocus: false, // Don't refetch on window focus (WebSocket handles updates)
       refetchOnMount: true, // Refetch on component mount
       refetchOnReconnect: true, // Refetch when connection restored
-      staleTime: 30000, // Consider data fresh for 30 seconds
-      cacheTime: 5 * 60 * 1000, // Keep unused data in cache for 5 minutes
+      staleTime: 5000, // Consider data fresh for 5 seconds (WebSocket updates faster)
+      cacheTime: 30000, // Keep unused data in cache for 30 seconds
       suspense: false, // Don't use React Suspense
       useErrorBoundary: false, // Don't throw errors to error boundary
+      // Polling fallback (used when WebSocket fails)
+      refetchInterval: false, // Will be enabled by WebSocketContext if needed
     },
     mutations: {
       retry: 1, // Retry mutations once
@@ -61,9 +65,10 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Router>
-          <Routes>
-            <Route path="/login" element={<Login />} />
+        <WebSocketProvider>
+          <Router>
+            <Routes>
+              <Route path="/login" element={<Login />} />
             <Route
               path="/"
               element={
@@ -104,6 +109,7 @@ function App() {
             </Route>
           </Routes>
         </Router>
+        </WebSocketProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

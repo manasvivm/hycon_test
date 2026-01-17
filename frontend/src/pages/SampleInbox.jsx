@@ -4,7 +4,7 @@ import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import showToast from '../utils/toast';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 function SampleInbox() {
   const { token, user } = useAuth();
@@ -22,7 +22,9 @@ function SampleInbox() {
       });
       return response.data;
     },
-    enabled: activeTab === 'inbox'
+    enabled: activeTab === 'inbox',
+refetchInterval: 10000, // Auto-refresh every 10 seconds
+    staleTime: 5000
   });
 
   // Fetch sent items

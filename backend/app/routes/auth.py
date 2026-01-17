@@ -6,29 +6,60 @@ import csv
 import io
 import openpyxl
 from pydantic import ValidationError
+import logging
 from ..database import get_db
 from ..schemas import UserLogin, Token, UserCreate, User
-from ..auth import authenticate_user, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, get_current_user, get_current_admin
+from ..auth import authenticate_user, authenticate_user_ldap, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, get_current_user, get_current_admin
 from ..crud import create_user, get_user_by_email, get_users
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+logger = logging.getLogger(__name__)
 
 @router.post("/login", response_model=Token)
 async def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
-    """Authenticate user and return access token"""
-    user = authenticate_user(db, user_credentials.email, user_credentials.password)
+    """
+    Authenticate user and return access token
     
+    Tries LDAP/Active Directory first, falls back to database authentication
+    Accepts: email, username, or DOMAIN\\username formats
+    """
+    user = None
+    auth_method = "unknown"
+    
+    # Try LDAP authentication first
+    try:
+        logger.info(f"Attempting LDAP authentication for: {user_credentials.email}")
+        user = authenticate_user_ldap(db, user_credentials.email, user_credentials.password)
+        if user:
+            auth_method = "ldap"
+            logger.info(f"✅ LDAP authentication successful for: {user.email}")
+    except Exception as ldap_error:
+        logger.warning(f"LDAP authentication error: {str(ldap_error)}")
+    
+    # Fallback to database authentication if LDAP fails
     if not user:
+        logger.info(f"Trying database authentication for: {user_credentials.email}")
+        user = authenticate_user(db, user_credentials.email, user_credentials.password)
+        if user:
+            auth_method = "database"
+            logger.info(f"✅ Database authentication successful for: {user.email}")
+    
+    # If both methods fail, return error
+    if not user:
+        logger.error(f"❌ All authentication methods failed for: {user_credentials.email}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="Incorrect credentials. Try your domain username (e.g., HYCONLAB\\username) or email.",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    # Create JWT token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
+    
+    logger.info(f"Token issued for {user.email} via {auth_method} auth")
     
     return {
         "access_token": access_token,
